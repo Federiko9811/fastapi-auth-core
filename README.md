@@ -17,86 +17,86 @@ A production-ready FastAPI template with JWT authentication using HttpOnly cooki
 
 ---
 
-## 🚀 Usare come Template per un Nuovo Progetto
+## 🚀 Use as Template for a New Project
 
-Questa sezione spiega come clonare questo repository e configurarlo per un nuovo progetto.
+This section explains how to clone this repository and configure it for a new project.
 
-### Step 1: Clona il Repository
+### Step 1: Clone the Repository
 
 ```bash
-# Clona con un nuovo nome (sostituisci "my-new-api" con il nome del tuo progetto)
+# Clone with a new name (replace "my-new-api" with your project name)
 git clone https://github.com/Federiko9811/fastapi-auth-core.git my-new-api
 cd my-new-api
 
-# Rimuovi la history git e inizializza un nuovo repository
+# Remove git history and initialize a new repository
 rm -rf .git
 git init
 ```
 
-### Step 2: Rinomina il Progetto
+### Step 2: Rename the Project
 
-Devi aggiornare il nome del progetto in questi file:
+You need to update the project name in these files:
 
-| File | Cosa cambiare |
-|------|---------------|
+| File | What to change |
+|------|----------------|
 | `pyproject.toml` | `name = "my-new-api"` |
 | `app/core/config.py` | `PROJECT_NAME: str = "My New API"` |
 | `.env.example` | `PROJECT_NAME=My New API` |
 | `.env.example` | `POSTGRES_DB=my_new_api_db` |
-| `docker-compose.yml` | Container names (opzionale) |
-| `README.md` | Titolo e descrizione |
+| `docker-compose.yml` | Container names (optional) |
+| `README.md` | Title and description |
 
-**Esempio con sed (Linux/Mac):**
+**Example with sed (Linux/Mac):**
 
 ```bash
-# Sostituisci "fastapi-auth-core" con "my-new-api" in pyproject.toml
+# Replace "fastapi-auth-core" with "my-new-api" in pyproject.toml
 sed -i 's/fastapi-auth-core/my-new-api/g' pyproject.toml
 
-# Aggiorna il nome del progetto in config.py
+# Update project name in config.py
 sed -i 's/FastAPI Auth Core/My New API/g' app/core/config.py
 
-# Aggiorna .env.example
+# Update .env.example
 sed -i 's/FastAPI Auth Core/My New API/g' .env.example
 sed -i 's/POSTGRES_DB=auth_db/POSTGRES_DB=my_new_api_db/g' .env.example
 ```
 
-### Step 3: Configura l'Ambiente
+### Step 3: Configure the Environment
 
 ```bash
-# Copia e configura le variabili d'ambiente
+# Copy and configure environment variables
 cp .env.example .env
 
-# Genera una SECRET_KEY sicura
+# Generate a secure SECRET_KEY
 openssl rand -hex 32
-# Copia l'output e incollalo nel file .env alla riga SECRET_KEY=
+# Copy the output and paste it in .env at the SECRET_KEY= line
 ```
 
-### Step 4: Setup Sviluppo
+### Step 4: Development Setup
 
 ```bash
-# Installa dipendenze e pre-commit hooks
+# Install dependencies and pre-commit hooks
 make dev
 
-# Avvia il database PostgreSQL
+# Start PostgreSQL database
 make db
 
-# Attendi qualche secondo che il DB sia pronto, poi crea le tabelle
+# Wait a few seconds for the DB to be ready, then create the tables
 make migrate
 ```
 
-### Step 5: Primo Avvio!
+### Step 5: First Run!
 
 ```bash
-# Avvia il server di sviluppo
+# Start the development server
 make run
 ```
 
-🎉 **Il server è attivo!**
+🎉 **The server is running!**
 - API: http://localhost:8000
 - Swagger UI: http://localhost:8000/api/v1/docs
-- Registra un utente: `POST /api/v1/auth/register`
+- Register a user: `POST /api/v1/auth/register`
 
-### Step 6: Primo Commit
+### Step 6: First Commit
 
 ```bash
 git add .
@@ -105,9 +105,9 @@ git commit -m "Initial commit: My New API"
 
 ---
 
-## Quick Start (Senza Clonazione)
+## Quick Start (Without Cloning)
 
-Se stai lavorando direttamente su questo repository:
+If you're working directly on this repository:
 
 ### Prerequisites
 
@@ -302,13 +302,13 @@ When registering, passwords must meet these requirements:
 
 ## Testing
 
-I test usano un database isolato (`{POSTGRES_DB}_test`) che viene creato prima dei test e eliminato dopo. Il database di sviluppo/produzione non viene mai toccato.
+Tests use an isolated database (`{POSTGRES_DB}_test`) that is created before tests run and dropped after. The development/production database is never touched.
 
 ```bash
-# Assicurati che il DB sia attivo
+# Make sure the DB is running
 make db
 
-# Esegui i test
+# Run tests
 make test
 ```
 
