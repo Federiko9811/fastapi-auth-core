@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.venv/
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Environment Variables (CRITICAL: Never commit passwords!)
+.env
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# Docker & Testing
+.coverage
+htmlcov/
+.pytest_cache/
