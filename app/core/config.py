@@ -26,7 +26,12 @@ class Settings(BaseSettings):
     API_V1_STR: str = "/api/v1"
 
     # CORS origins - comma-separated string in .env, converted to list
-    BACKEND_CORS_ORIGINS: list[str] = ["http://localhost:3000", "http://localhost:8080"]
+    BACKEND_CORS_ORIGINS: list[str] = [
+        "http://localhost:3000",
+        "http://localhost:8080",
+        "http://127.0.0.1:3000",
+        "http://127.0.0.1:8000",
+    ]
 
     POSTGRES_SERVER: str
     POSTGRES_USER: str
@@ -39,6 +44,24 @@ class Settings(BaseSettings):
 
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 15
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
+
+    # WebAuthn / Passkeys settings
+    # RP_ID: domain where passkeys are valid (e.g., "example.com")
+    # RP_NAME: displayed to user during passkey creation
+    # ORIGIN: frontend URL for WebAuthn origin verification
+    WEBAUTHN_RP_ID: str = "localhost"
+    WEBAUTHN_RP_NAME: str = "FastAPI Auth Core"
+    WEBAUTHN_ORIGIN: str = "http://localhost:3000"
+
+    # Redis configuration (for challenge storage)
+    REDIS_URL: str = "redis://localhost:6379"
+
+    # Cookie security (set to True in production with HTTPS)
+    COOKIE_SECURE: bool = False
+
+    # Rate limiting (requests per IP per window)
+    RATE_LIMIT_REQUESTS: int = 100  # Max requests per window
+    RATE_LIMIT_WINDOW: int = 60  # Window size in seconds
 
     model_config = SettingsConfigDict(
         env_file=".env", case_sensitive=True, extra="ignore"

@@ -1,4 +1,4 @@
-.PHONY: help install dev test lint format migrate run clean
+.PHONY: help install dev test lint format migrate run clean db redis
 
 # Default target
 help:
@@ -11,6 +11,8 @@ help:
 	@echo "  make format      Format code (ruff format)"
 	@echo "  make migrate     Run database migrations"
 	@echo "  make run         Start development server"
+	@echo "  make db          Start PostgreSQL and Redis (Docker)"
+	@echo "  make redis       Start Redis only (Docker)"
 	@echo "  make clean       Remove cache files"
 	@echo ""
 
@@ -44,13 +46,18 @@ migrate:
 migration:
 	POSTGRES_SERVER=localhost uv run alembic revision --autogenerate -m "$(msg)"
 
-# Start development server
+# Start development server (reads APP_PORT from .env, defaults to 8000)
 run:
-	POSTGRES_SERVER=localhost uv run uvicorn app.main:app --reload
+	@export $$(grep -v '^#' .env | xargs) 2>/dev/null; \
+	POSTGRES_SERVER=localhost uv run uvicorn app.main:app --reload --port $${APP_PORT:-8000}
 
-# Start database only (Docker)
+# Start database and Redis (Docker)
 db:
-	docker-compose up -d db
+	docker compose up -d db redis
+
+# Start Redis only (Docker)
+redis:
+	docker compose up -d redis
 
 # Clean up cache files
 clean:

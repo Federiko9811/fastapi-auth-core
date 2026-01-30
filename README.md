@@ -1,316 +1,319 @@
 # FastAPI Auth Core
 
-A production-ready FastAPI template with JWT authentication using HttpOnly cookies.
+A production-ready FastAPI template with **passwordless authentication** using WebAuthn Passkeys.
 
 ## Features
 
-- 🔐 **Secure Authentication**: JWT tokens stored in HttpOnly cookies (XSS protection)
+- 🔑 **Passkeys (WebAuthn)**: Modern passwordless authentication using FIDO2
+- 🔐 **Secure Sessions**: JWT tokens stored in HttpOnly cookies (XSS protection)
 - 🔄 **Token Refresh**: Automatic access token renewal via refresh tokens
 - 🗄️ **Async Database**: PostgreSQL with SQLAlchemy async ORM
 - 🐳 **Docker Ready**: Complete Docker and Docker Compose setup
 - 📦 **Modern Tooling**: Uses `uv` for fast dependency management
-- 🔒 **Password Hashing**: Argon2id (industry recommended)
 - 🔀 **Database Migrations**: Alembic for schema versioning
 - 📝 **Structured Logging**: JSON format for production, readable for dev
-- ✅ **Password Validation**: Min 8 chars, uppercase, lowercase, digit
 - 🧪 **Test Suite**: pytest with async support (isolated test database)
+- 📱 **Multi-Device**: Users can register multiple passkeys (phone, laptop, security key)
+- ⚡ **Redis Cache**: Challenge storage with automatic expiration
+- 🛡️ **Rate Limiting**: IP-based protection against DDoS attacks
 
 ---
 
-## 🚀 Use as Template for a New Project
+## 🔑 How Passkeys Work
 
-This section explains how to clone this repository and configure it for a new project.
+Passkeys are a modern, phishing-resistant authentication method that replaces passwords. They use public-key cryptography and biometric verification (Face ID, Touch ID, Windows Hello, or a security key).
 
-### Step 1: Clone the Repository
+### Authentication Flow
 
-```bash
-# Clone with a new name (replace "my-new-api" with your project name)
-git clone https://github.com/Federiko9811/fastapi-auth-core.git my-new-api
-cd my-new-api
-
-# Remove git history and initialize a new repository
-rm -rf .git
-git init
+```
+┌──────────────┐         ┌──────────────┐         ┌──────────────┐
+│   Browser    │         │   Backend    │         │    Redis     │
+└──────┬───────┘         └──────┬───────┘         └──────┬───────┘
+       │                        │                        │
+       │ 1. POST /register/begin│                        │
+       │───────────────────────>│                        │
+       │                        │ 2. Store challenge     │
+       │                        │───────────────────────>│
+       │   3. Return options    │                        │
+       │<───────────────────────│                        │
+       │                        │                        │
+       │ 4. User creates passkey│                        │
+       │   (biometric prompt)   │                        │
+       │                        │                        │
+       │ 5. POST /register/complete                      │
+       │───────────────────────>│ 6. Get & verify        │
+       │                        │    challenge           │
+       │                        │<───────────────────────│
+       │                        │                        │
+       │   7. Set JWT cookies   │                        │
+       │<───────────────────────│                        │
+       │                        │                        │
 ```
 
-### Step 2: Rename the Project
+### Why Passkeys?
 
-You need to update the project name in these files:
-
-| File | What to change |
-|------|----------------|
-| `pyproject.toml` | `name = "my-new-api"` |
-| `app/core/config.py` | `PROJECT_NAME: str = "My New API"` |
-| `.env.example` | `PROJECT_NAME=My New API` |
-| `.env.example` | `POSTGRES_DB=my_new_api_db` |
-| `docker-compose.yml` | Container names (optional) |
-| `README.md` | Title and description |
-
-**Example with sed (Linux/Mac):**
-
-```bash
-# Replace "fastapi-auth-core" with "my-new-api" in pyproject.toml
-sed -i 's/fastapi-auth-core/my-new-api/g' pyproject.toml
-
-# Update project name in config.py
-sed -i 's/FastAPI Auth Core/My New API/g' app/core/config.py
-
-# Update .env.example
-sed -i 's/FastAPI Auth Core/My New API/g' .env.example
-sed -i 's/POSTGRES_DB=auth_db/POSTGRES_DB=my_new_api_db/g' .env.example
-```
-
-### Step 3: Configure the Environment
-
-```bash
-# Copy and configure environment variables
-cp .env.example .env
-
-# Generate a secure SECRET_KEY
-openssl rand -hex 32
-# Copy the output and paste it in .env at the SECRET_KEY= line
-```
-
-### Step 4: Development Setup
-
-```bash
-# Install dependencies and pre-commit hooks
-make dev
-
-# Start PostgreSQL database
-make db
-
-# Wait a few seconds for the DB to be ready, then create the tables
-make migrate
-```
-
-### Step 5: First Run!
-
-```bash
-# Start the development server
-make run
-```
-
-🎉 **The server is running!**
-- API: http://localhost:8000
-- Swagger UI: http://localhost:8000/api/v1/docs
-- Register a user: `POST /api/v1/auth/register`
-
-### Step 6: First Commit
-
-```bash
-git add .
-git commit -m "Initial commit: My New API"
-```
+| Traditional Auth | Passkeys |
+|-----------------|----------|
+| ❌ Passwords can be stolen | ✅ Private key never leaves device |
+| ❌ Phishing attacks possible | ✅ Phishing-resistant by design |
+| ❌ Password reuse across sites | ✅ Unique key per site |
+| ❌ Need to remember passwords | ✅ Just use biometrics |
 
 ---
 
-## Quick Start (Without Cloning)
-
-If you're working directly on this repository:
+## 🚀 Quick Start
 
 ### Prerequisites
 
 - Python 3.12+
 - Docker & Docker Compose
-- [uv](https://github.com/astral-sh/uv) (recommended for local development)
+- [uv](https://github.com/astral-sh/uv) (recommended)
 
-### Option 1: Full Docker (Simplest)
-
-Run everything in containers:
+### Local Development
 
 ```bash
-# 1. Configure environment
+# 1. Clone and configure
+git clone https://github.com/Federiko9811/fastapi-auth-core.git
+cd fastapi-auth-core
 cp .env.example .env
-# Edit .env - generate SECRET_KEY with: openssl rand -hex 32
 
-# 2. Start all services
-docker-compose up -d
+# 2. Generate a secure secret key
+openssl rand -hex 32
+# Paste the output in .env at SECRET_KEY=
 
-# 3. Run migrations
-docker-compose exec app-api uv run alembic upgrade head
-
-# API available at http://localhost:8000
+# 3. Setup and run
+make dev      # Install dependencies + pre-commit
+make db       # Start PostgreSQL + Redis
+make migrate  # Apply database migrations
+make run      # Start server on http://localhost:8008
 ```
 
-### Option 2: Local Development (Recommended)
-
-Run the database in Docker, app locally for hot-reload:
+### Full Docker
 
 ```bash
-# 1. Configure environment
 cp .env.example .env
-# Edit .env - generate SECRET_KEY with: openssl rand -hex 32
-
-# 2. Setup development environment
-make dev  # Installs dependencies + pre-commit hooks
-
-# 3. Start database
-make db
-
-# 4. Run migrations and start server
-make migrate
-make run
-
-# API available at http://localhost:8000
+# Edit .env with your settings
+docker compose up -d
+docker compose exec app-api alembic upgrade head
 ```
 
 ---
 
-## Makefile Commands
+## 📡 API Endpoints
 
-| Command | Description |
-|---------|-------------|
-| `make dev` | Install dependencies + setup pre-commit hooks |
-| `make install` | Install production dependencies only |
-| `make run` | Start development server |
-| `make test` | Run test suite |
-| `make lint` | Check code style with Ruff |
-| `make format` | Format code with Ruff |
-| `make db` | Start database container |
-| `make migrate` | Apply database migrations |
-| `make migration msg="..."` | Create new migration |
-| `make clean` | Remove cache files |
+### Passkeys (`/api/v1/passkeys`)
 
-## Database Migrations
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/register/begin` | Start passkey registration |
+| POST | `/register/complete` | Complete registration & login |
+| POST | `/login/begin` | Start authentication |
+| POST | `/login/complete` | Complete login |
+| GET | `/` | List user's passkeys (🔒) |
+| PATCH | `/{id}` | Rename a passkey (🔒) |
+| DELETE | `/{id}` | Delete a passkey (🔒) |
 
-Alembic manages database schema changes.
+🔒 = Requires authentication
 
-### Common Commands
+### Auth (`/api/v1/auth`)
 
-```bash
-# Apply all pending migrations
-make migrate
-
-# Create a new migration after modifying models
-make migration msg="Add phone field to users"
-
-# Manual commands (if not using Makefile)
-POSTGRES_SERVER=localhost uv run alembic upgrade head
-POSTGRES_SERVER=localhost uv run alembic revision --autogenerate -m "Description"
-```
-
-### Workflow Example
-
-1. **Modify a model** (e.g., add a field to `User`):
-   ```python
-   # app/models/user.py
-   phone: Mapped[str | None] = mapped_column(String, nullable=True)
-   ```
-
-2. **Generate migration**:
-   ```bash
-   make migration msg="Add phone to users"
-   ```
-
-3. **Review the generated file** in `alembic/versions/`
-
-4. **Apply migration**:
-   ```bash
-   make migrate
-   ```
-
-## API Endpoints
-
-### Authentication (`/api/v1/auth`)
-
-| Method | Endpoint    | Description                          |
-|--------|-------------|--------------------------------------|
-| POST   | `/register` | Register a new user                  |
-| POST   | `/login`    | Login and receive cookies            |
-| POST   | `/refresh`  | Refresh access token                 |
-| POST   | `/logout`   | Clear authentication cookies         |
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/refresh` | Refresh access token |
+| POST | `/logout` | Clear cookies |
 
 ### Users (`/api/v1/users`)
 
-| Method | Endpoint | Description                          |
-|--------|----------|--------------------------------------|
-| GET    | `/me`    | Get current user profile             |
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/me` | Current user profile (🔒) |
 
-### Health Check
+### Health
 
-| Method | Endpoint  | Description                          |
-|--------|-----------|--------------------------------------|
-| GET    | `/`       | Quick status check                   |
-| GET    | `/health` | Detailed status with DB connectivity |
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/` | Quick status |
+| GET | `/health` | Detailed health with DB check |
 
-### API Documentation
+---
 
-- **Swagger UI**: http://localhost:8000/api/v1/docs
-- **OpenAPI JSON**: http://localhost:8000/api/v1/openapi.json
+## 🛡️ Rate Limiting
 
-## Project Structure
+The API includes IP-based rate limiting to protect against abuse:
+
+- **Default**: 100 requests per 60 seconds per IP
+- **Response headers**: `X-RateLimit-Limit`, `X-RateLimit-Remaining`, `X-RateLimit-Reset`
+- **When exceeded**: Returns `429 Too Many Requests`
+
+Configure in `.env`:
+```bash
+RATE_LIMIT_REQUESTS=100  # Max requests per window
+RATE_LIMIT_WINDOW=60     # Window size in seconds
+```
+
+---
+
+## 🚀 Production Deployment
+
+### Required Configuration
+
+Create a `.env` for production with these critical settings:
+
+```bash
+# Required: Generate with `openssl rand -hex 32`
+SECRET_KEY=your-secure-random-key
+
+# WebAuthn: Your production domain (NO protocol, NO port)
+WEBAUTHN_RP_ID=yourdomain.com
+WEBAUTHN_RP_NAME=Your App Name
+WEBAUTHN_ORIGIN=https://yourdomain.com
+
+# Database
+POSTGRES_SERVER=db
+POSTGRES_USER=youruser
+POSTGRES_PASSWORD=strong-password
+POSTGRES_DB=yourdb
+
+# Redis (use service name in Docker)
+REDIS_URL=redis://redis:6379
+
+# Security (MUST be true for HTTPS)
+COOKIE_SECURE=true
+
+# CORS (your frontend URL)
+BACKEND_CORS_ORIGINS=https://yourdomain.com,https://www.yourdomain.com
+```
+
+### ⚠️ Important Notes
+
+1. **WEBAUTHN_RP_ID cannot change** after users create passkeys. Choose carefully!
+2. **HTTPS is required** for passkeys to work in production (except localhost)
+3. **COOKIE_SECURE=true** ensures cookies are only sent over HTTPS
+
+### Deploy Steps
+
+```bash
+# 1. Copy your production .env to the server
+
+# 2. Start services
+docker compose up -d
+
+# 3. Run migrations
+docker compose exec app-api alembic upgrade head
+
+# 4. Check health
+curl https://yourdomain.com/health
+```
+
+---
+
+## 🔧 Makefile Commands
+
+| Command | Description |
+|---------|-------------|
+| `make dev` | Install deps + setup pre-commit |
+| `make run` | Start dev server (reads APP_PORT from .env) |
+| `make db` | Start PostgreSQL + Redis |
+| `make migrate` | Apply migrations |
+| `make test` | Run test suite |
+| `make format` | Format code with Ruff |
+| `make lint` | Check code style |
+| `make clean` | Remove cache files |
+
+---
+
+## 📁 Project Structure
 
 ```
 fastapi-auth-core/
-├── alembic/                  # Database migrations
-│   ├── versions/             # Migration files
-│   └── env.py                # Alembic configuration
 ├── app/
 │   ├── api/
-│   │   ├── deps.py           # Dependency injection (auth)
-│   │   └── v1/
-│   │       ├── endpoints/
-│   │       │   ├── auth.py   # Auth endpoints
-│   │       │   └── user.py   # User endpoints
-│   │       └── router.py     # API router
+│   │   ├── deps.py              # Auth dependencies
+│   │   └── v1/endpoints/
+│   │       ├── auth.py          # Token refresh, logout
+│   │       ├── passkey.py       # WebAuthn endpoints
+│   │       └── user.py          # User profile
 │   ├── core/
-│   │   ├── config.py         # Settings from env vars
-│   │   ├── exceptions.py     # Custom HTTP exceptions
-│   │   ├── logging.py        # Structured logging
-│   │   └── security.py       # JWT & password utilities
-│   ├── db/
-│   │   ├── base.py           # SQLAlchemy base class
-│   │   └── session.py        # Database session
+│   │   ├── cache.py             # Redis connection
+│   │   ├── config.py            # Environment settings
+│   │   ├── rate_limit.py        # Rate limiting middleware
+│   │   ├── security.py          # JWT utilities
+│   │   └── webauthn.py          # WebAuthn helpers
 │   ├── models/
-│   │   └── user.py           # User SQLAlchemy model
-│   ├── schemas/
-│   │   ├── token.py          # Token response schemas
-│   │   └── user.py           # Pydantic schemas
-│   └── main.py               # FastAPI application
-├── tests/                    # Test suite (uses isolated test DB)
-├── Makefile                  # Development commands
-├── .pre-commit-config.yaml   # Pre-commit hooks
+│   │   ├── user.py              # User model
+│   │   └── passkey.py           # Passkey model
+│   └── main.py                  # FastAPI app
+├── alembic/                     # Database migrations
+├── tests/                       # Test suite
 ├── docker-compose.yml
 ├── Dockerfile
-├── pyproject.toml
-└── .env.example
+└── Makefile
 ```
 
-## Environment Variables
+---
 
-| Variable                      | Description                    | Default              |
-|-------------------------------|--------------------------------|----------------------|
-| `PROJECT_NAME`                | Application display name       | FastAPI Application  |
-| `API_V1_STR`                  | API version prefix             | /api/v1              |
-| `BACKEND_CORS_ORIGINS`        | Allowed CORS origins           | localhost:3000,8080  |
-| `POSTGRES_SERVER`             | Database host                  | db                   |
-| `POSTGRES_USER`               | Database user                  | -                    |
-| `POSTGRES_PASSWORD`           | Database password              | -                    |
-| `POSTGRES_DB`                 | Database name                  | -                    |
-| `SECRET_KEY`                  | JWT signing key                | -                    |
-| `ACCESS_TOKEN_EXPIRE_MINUTES` | Access token lifetime          | 15                   |
-| `REFRESH_TOKEN_EXPIRE_DAYS`   | Refresh token lifetime         | 7                    |
+## ⚙️ Environment Variables
 
-## Password Requirements
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `SECRET_KEY` | JWT signing key | **required** |
+| `POSTGRES_*` | Database connection | **required** |
+| `WEBAUTHN_RP_ID` | Passkey domain | `localhost` |
+| `WEBAUTHN_RP_NAME` | Shown in passkey prompts | `FastAPI Auth Core` |
+| `WEBAUTHN_ORIGIN` | Frontend URL | `http://localhost:3000` |
+| `REDIS_URL` | Redis connection | `redis://localhost:6379` |
+| `COOKIE_SECURE` | HTTPS-only cookies | `false` |
+| `RATE_LIMIT_REQUESTS` | Max requests per window | `100` |
+| `RATE_LIMIT_WINDOW` | Window size (seconds) | `60` |
+| `ACCESS_TOKEN_EXPIRE_MINUTES` | Access token TTL | `15` |
+| `REFRESH_TOKEN_EXPIRE_DAYS` | Refresh token TTL | `7` |
 
-When registering, passwords must meet these requirements:
-- Minimum 8 characters
-- At least one uppercase letter
-- At least one lowercase letter
-- At least one digit
+---
 
-## Testing
+## 🧪 Testing
 
-Tests use an isolated database (`{POSTGRES_DB}_test`) that is created before tests run and dropped after. The development/production database is never touched.
+Tests use an isolated database (`{POSTGRES_DB}_test`).
 
 ```bash
-# Make sure the DB is running
-make db
-
-# Run tests
-make test
+make db    # Ensure PostgreSQL is running
+make test  # Run tests
 ```
+
+---
+
+## 📱 Frontend Integration
+
+Use the [@simplewebauthn/browser](https://github.com/MasterKale/SimpleWebAuthn) library:
+
+```bash
+npm install @simplewebauthn/browser
+```
+
+Example registration flow:
+
+```javascript
+import { startRegistration } from '@simplewebauthn/browser';
+
+// 1. Get options from backend
+const { options } = await fetch('/api/v1/passkeys/register/begin', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ email: 'user@example.com' })
+}).then(r => r.json());
+
+// 2. Create passkey (browser handles biometrics)
+const credential = await startRegistration({ optionsJSON: options });
+
+// 3. Complete registration
+await fetch('/api/v1/passkeys/register/complete', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  credentials: 'include',  // Required for cookies
+  body: JSON.stringify({ email: 'user@example.com', credential })
+});
+```
+
+---
 
 ## License
 

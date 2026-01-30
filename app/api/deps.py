@@ -64,3 +64,8 @@ async def get_current_user(
         raise InactiveUserException()
 
     return user
+
+
+# Alias for semantic clarity in endpoint dependencies
+# get_current_user already checks is_active, so this is the same function
+get_current_active_user = get_current_user

@@ -21,6 +21,7 @@ from app.db.session import get_db
 
 # Import all models so they are registered with Base.metadata
 from app.models.user import User  # noqa: F401
+from app.models.passkey import Passkey  # noqa: F401
 
 # Test database name - separate from development/production
 TEST_DB_NAME = f"{settings.POSTGRES_DB}_test"

@@ -1,44 +1,16 @@
 """
-Security utilities for password hashing and JWT token management.
+Security utilities for JWT token management.
+
+Note: Password hashing has been removed - this application uses
+passwordless authentication via WebAuthn passkeys.
 """
 
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from jose import jwt
-from pwdlib import PasswordHash
 
 from app.core.config import settings
-
-# Configure password hashing algorithm (Argon2id - recommended)
-password_hash = PasswordHash.recommended()
-
-
-def verify_password(plain_password: str, hashed_password: str) -> bool:
-    """
-    Verify a plain password against a hashed password.
-
-    Args:
-        plain_password: The plain text password to verify.
-        hashed_password: The hashed password to compare against.
-
-    Returns:
-        True if the password matches, False otherwise.
-    """
-    return password_hash.verify(plain_password, hashed_password)
-
-
-def get_password_hash(password: str) -> str:
-    """
-    Generate a secure hash of a password using Argon2id.
-
-    Args:
-        password: The plain text password to hash.
-
-    Returns:
-        The hashed password string.
-    """
-    return password_hash.hash(password)
 
 
 def create_access_token(subject: str | Any) -> str:

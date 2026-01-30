@@ -39,12 +39,12 @@ class EmailAlreadyExistsException(HTTPException):
 
 
 class InvalidCredentialsException(HTTPException):
-    """Exception raised when login credentials are incorrect."""
+    """Exception raised when authentication fails."""
 
     def __init__(self) -> None:
         super().__init__(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Incorrect email or password",
+            detail="Authentication failed",
         )
 
 
@@ -55,4 +55,54 @@ class InvalidTokenException(HTTPException):
         super().__init__(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=detail,
+        )
+
+
+class UserNotFoundException(HTTPException):
+    """Exception raised when user is not found."""
+
+    def __init__(self) -> None:
+        super().__init__(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found",
+        )
+
+
+class PasskeyNotFoundException(HTTPException):
+    """Exception raised when passkey is not found."""
+
+    def __init__(self) -> None:
+        super().__init__(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Passkey not found",
+        )
+
+
+class PasskeyRegistrationFailedException(HTTPException):
+    """Exception raised when passkey registration fails."""
+
+    def __init__(self, detail: str = "Passkey registration failed") -> None:
+        super().__init__(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=detail,
+        )
+
+
+class PasskeyAuthenticationFailedException(HTTPException):
+    """Exception raised when passkey authentication fails."""
+
+    def __init__(self, detail: str = "Passkey authentication failed") -> None:
+        super().__init__(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=detail,
+        )
+
+
+class ChallengeNotFoundException(HTTPException):
+    """Exception raised when WebAuthn challenge is not found or expired."""
+
+    def __init__(self) -> None:
+        super().__init__(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Challenge not found or expired. Please start the process again.",
         )

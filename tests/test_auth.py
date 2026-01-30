@@ -1,7 +1,8 @@
 """
 Tests for authentication endpoints.
 
-Uses unique emails for test isolation without database cleanup.
+Note: Full WebAuthn testing requires a browser/authenticator.
+These tests verify API contracts and error handling.
 """
 
 import uuid
@@ -14,39 +15,35 @@ def unique_email() -> str:
     return f"test_{uuid.uuid4().hex[:8]}@example.com"
 
 
-# Password that meets validation requirements:
-# - 8+ characters
-# - uppercase letter
-# - lowercase letter
-# - digit
-VALID_PASSWORD = "TestPass123"
-
-
-async def test_register_user(client: AsyncClient) -> None:
-    """Test user registration with valid password."""
+async def test_register_begin_returns_options(client: AsyncClient) -> None:
+    """Test /passkeys/register/begin returns WebAuthn options."""
     email = unique_email()
     response = await client.post(
-        "/api/v1/auth/register",
-        json={"email": email, "password": VALID_PASSWORD},
+        "/api/v1/passkeys/register/begin",
+        json={"email": email},
     )
 
     assert response.status_code == 200
     data = response.json()
-    assert data["email"] == email
-    assert "id" in data
-    assert "password" not in data  # Password should never be in response
+    assert "options" in data
+    options = data["options"]
+    # Verify WebAuthn structure
+    assert "challenge" in options
+    assert "rp" in options
+    assert "user" in options
+    assert options["user"]["name"] == email
 
 
-async def test_register_weak_password(client: AsyncClient) -> None:
-    """Test registration fails with weak password."""
+async def test_login_begin_user_not_found(client: AsyncClient) -> None:
+    """Test /passkeys/login/begin returns 404 for non-existent user."""
     email = unique_email()
     response = await client.post(
-        "/api/v1/auth/register",
-        json={"email": email, "password": "weak"},  # Too short, no uppercase/digit
+        "/api/v1/passkeys/login/begin",
+        json={"email": email},
     )
 
-    assert response.status_code == 422  # Validation error
-    assert "password" in response.text.lower()
+    assert response.status_code == 404
+    assert "not found" in response.json()["detail"].lower()
 
 
 async def test_logout_returns_success(client: AsyncClient) -> None:
@@ -55,3 +52,10 @@ async def test_logout_returns_success(client: AsyncClient) -> None:
 
     assert response.status_code == 200
     assert response.json()["message"] == "Logout successful"
+
+
+async def test_passkeys_list_requires_auth(client: AsyncClient) -> None:
+    """Test /passkeys endpoint requires authentication."""
+    response = await client.get("/api/v1/passkeys")
+
+    assert response.status_code == 401

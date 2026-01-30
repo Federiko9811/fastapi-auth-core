@@ -17,6 +17,7 @@ from app.db.base import Base
 
 # Import all models here so Alembic can detect them
 from app.models.user import User  # noqa: F401
+from app.models.passkey import Passkey  # noqa: F401
 
 # Alembic Config object
 config = context.config

@@ -48,5 +48,5 @@ EXPOSE 8000
 ENV UV_PYTHON_DOWNLOADS=never \
     UV_CACHE_DIR=/home/appuser/.cache/uv
 
-# 12. Start command
-CMD ["uv", "run", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers"]
+# 12. Start command - run migrations then start server
+CMD ["sh", "-c", "uv run alembic upgrade head && uv run uvicorn app.main:app --host 0.0.0.0 --port 8000 --proxy-headers"]

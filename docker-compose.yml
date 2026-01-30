@@ -7,11 +7,12 @@ services:
       - .env
     ports:
       - "${APP_PORT:-8000}:8000"
-    # Wait for the database to be ready before starting
+    # Wait for the database and redis to be ready before starting
     depends_on:
       - db
+      - redis
 
-  # Database Service
+  # Database Service (internal only - access via Portainer console)
   db:
     image: postgres:17-alpine
     container_name: app_db
@@ -23,9 +24,16 @@ services:
       - PGDATA=/var/lib/postgresql/data/pgdata
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    ports:
-      - "5432:5432"
+
+  # Redis Service (internal only - access via Portainer console)
+  redis:
+    image: redis:7-alpine
+    container_name: app_redis
+    restart: always
+    volumes:
+      - redis_data:/data
 
 # Named volumes for data persistence
 volumes:
   postgres_data:
+  redis_data:

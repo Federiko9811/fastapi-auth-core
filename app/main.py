@@ -12,8 +12,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 
 from app.api.v1.router import api_router
+from app.core.cache import close_redis
 from app.core.config import settings
 from app.core.logging import get_logger, setup_logging
+from app.core.rate_limit import RateLimitMiddleware
 from app.db.session import SessionLocal
 
 # Initialize logging
@@ -28,6 +30,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     logger.info(f"Starting {settings.PROJECT_NAME}")
     yield
     # Shutdown
+    await close_redis()
     logger.info(f"Shutting down {settings.PROJECT_NAME}")
 
 
@@ -37,6 +40,9 @@ app = FastAPI(
     version="1.0.0",
     lifespan=lifespan,
 )
+
+# Rate limiting middleware (must be added before CORS)
+app.add_middleware(RateLimitMiddleware)
 
 # Configure CORS middleware
 if settings.BACKEND_CORS_ORIGINS:

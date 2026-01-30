@@ -1,58 +1,42 @@
 """
 User Pydantic schemas for request/response validation.
+
+Note: User registration is handled via passkeys, not passwords.
 """
 
-import re
+from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict, EmailStr, field_validator
+from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
 
-class UserCreate(BaseModel):
-    """Schema for user registration request."""
+class UserCreatePasskey(BaseModel):
+    """
+    Schema for user creation during passkey registration.
+
+    Unlike traditional registration, no password is required.
+    The user is created when their first passkey is registered.
+    """
 
     email: EmailStr
-    password: str
-
-    @field_validator("password")
-    @classmethod
-    def validate_password(cls, v: str) -> str:
-        """
-        Validate password meets security requirements.
-
-        Requirements:
-            - Minimum 8 characters
-            - At least one uppercase letter
-            - At least one lowercase letter
-            - At least one digit
-
-        Raises:
-            ValueError: If password doesn't meet requirements.
-        """
-        if len(v) < 8:
-            raise ValueError("Password must be at least 8 characters long")
-
-        if not re.search(r"[A-Z]", v):
-            raise ValueError("Password must contain at least one uppercase letter")
-
-        if not re.search(r"[a-z]", v):
-            raise ValueError("Password must contain at least one lowercase letter")
-
-        if not re.search(r"\d", v):
-            raise ValueError("Password must contain at least one digit")
-
-        return v
+    display_name: str | None = Field(
+        default=None,
+        max_length=100,
+        description="Optional display name shown in passkey prompts",
+    )
 
 
 class UserResponse(BaseModel):
     """
     Schema for user data in API responses.
 
-    Note: Never include sensitive data like password in responses.
+    Note: Never include sensitive data in responses.
     """
 
     model_config = ConfigDict(from_attributes=True)
 
     id: int
     email: EmailStr
+    display_name: str | None
     is_active: bool
     is_admin: bool
+    created_at: datetime
