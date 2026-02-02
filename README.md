@@ -8,14 +8,15 @@ A production-ready FastAPI template with **passwordless authentication** using W
 - 🔐 **Secure Sessions**: JWT tokens stored in HttpOnly cookies (XSS protection)
 - 🔄 **Token Refresh**: Automatic access token renewal via refresh tokens
 - 🗄️ **Async Database**: PostgreSQL with SQLAlchemy async ORM
-- 🐳 **Docker Ready**: Complete Docker and Docker Compose setup
+- 🐳 **Docker Ready**: Separate compose files for dev and production
 - 📦 **Modern Tooling**: Uses `uv` for fast dependency management
 - 🔀 **Database Migrations**: Alembic for schema versioning
 - 📝 **Structured Logging**: JSON format for production, readable for dev
 - 🧪 **Test Suite**: pytest with async support (isolated test database)
-- 📱 **Multi-Device**: Users can register multiple passkeys (phone, laptop, security key)
-- ⚡ **Redis Cache**: Challenge storage with automatic expiration
+- 📱 **Multi-Device**: Users can register multiple passkeys with OTP email verification
+- ⚡ **Redis Cache**: Challenge and OTP storage with automatic expiration
 - 🛡️ **Rate Limiting**: IP-based protection against DDoS attacks
+- 📧 **Email OTP**: Secure verification when adding passkeys to existing accounts
 
 ---
 
@@ -23,31 +24,49 @@ A production-ready FastAPI template with **passwordless authentication** using W
 
 Passkeys are a modern, phishing-resistant authentication method that replaces passwords. They use public-key cryptography and biometric verification (Face ID, Touch ID, Windows Hello, or a security key).
 
-### Authentication Flow
+### Registration Flow
+
+**New User:** Direct passkey registration
 
 ```
-┌──────────────┐         ┌──────────────┐         ┌──────────────┐
-│   Browser    │         │   Backend    │         │    Redis     │
-└──────┬───────┘         └──────┬───────┘         └──────┬───────┘
-       │                        │                        │
-       │ 1. POST /register/begin│                        │
-       │───────────────────────>│                        │
-       │                        │ 2. Store challenge     │
-       │                        │───────────────────────>│
-       │   3. Return options    │                        │
-       │<───────────────────────│                        │
-       │                        │                        │
-       │ 4. User creates passkey│                        │
-       │   (biometric prompt)   │                        │
-       │                        │                        │
-       │ 5. POST /register/complete                      │
-       │───────────────────────>│ 6. Get & verify        │
-       │                        │    challenge           │
-       │                        │<───────────────────────│
-       │                        │                        │
-       │   7. Set JWT cookies   │                        │
-       │<───────────────────────│                        │
-       │                        │                        │
+Browser                    Backend                    Redis
+   │                          │                          │
+   │ POST /register/begin     │                          │
+   │─────────────────────────>│                          │
+   │                          │ Store challenge          │
+   │                          │─────────────────────────>│
+   │   {options: {...}}       │                          │
+   │<─────────────────────────│                          │
+   │                          │                          │
+   │ User creates passkey     │                          │
+   │ (biometric prompt)       │                          │
+   │                          │                          │
+   │ POST /register/complete  │                          │
+   │─────────────────────────>│                          │
+   │                          │                          │
+   │   JWT cookies set        │                          │
+   │<─────────────────────────│                          │
+```
+
+**Existing User:** OTP verification required (prevents Account Takeover)
+
+```
+Browser                    Backend                    Redis/Email
+   │                          │                          │
+   │ POST /register/begin     │                          │
+   │─────────────────────────>│                          │
+   │                          │ Generate OTP             │
+   │                          │─────────────────────────>│ Redis + Email
+   │   {requires_otp: true}   │                          │
+   │<─────────────────────────│                          │
+   │                          │                          │
+   │ POST /register/verify-otp│                          │
+   │─────────────────────────>│ Verify OTP               │
+   │                          │<─────────────────────────│
+   │   {options: {...}}       │                          │
+   │<─────────────────────────│                          │
+   │                          │                          │
+   │ Continue with passkey... │                          │
 ```
 
 ### Why Passkeys?
@@ -105,7 +124,8 @@ docker compose exec app-api alembic upgrade head
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| POST | `/register/begin` | Start passkey registration |
+| POST | `/register/begin` | Start passkey registration (sends OTP if user exists) |
+| POST | `/register/verify-otp` | Verify OTP for existing user |
 | POST | `/register/complete` | Complete registration & login |
 | POST | `/login/begin` | Start authentication |
 | POST | `/login/complete` | Complete login |
@@ -153,57 +173,83 @@ RATE_LIMIT_WINDOW=60     # Window size in seconds
 
 ---
 
+## � Docker Compose
+
+Two separate compose files for development and production:
+
+| File | Use | Ports Exposed |
+|------|-----|---------------|
+| `docker-compose.dev.yml` | Local development | DB: 5432, Redis: 6379 |
+| `docker-compose.yml` | Production | None (internal only) |
+
+### Local Development
+
+```bash
+# Start services with exposed ports
+make db       # Uses docker-compose.dev.yml
+make run      # App runs on host, connects to localhost
+```
+
+### Production
+
+```bash
+# All services containerized, no ports exposed
+docker compose up -d
+docker compose exec app-api alembic upgrade head
+```
+
+---
+
+## 📧 Email Configuration (OTP)
+
+Email is required for OTP verification when users add passkeys to existing accounts.
+
+### Gmail Setup
+
+1. Enable 2-Step Verification at https://myaccount.google.com/security
+2. Create an App Password at https://myaccount.google.com/apppasswords
+3. Add to `.env`:
+
+```bash
+MAIL_USERNAME=your-email@gmail.com
+MAIL_PASSWORD=abcdefghijklmnop  # App Password (no spaces)
+MAIL_FROM=your-email@gmail.com
+MAIL_FROM_NAME="Your App Name"
+MAIL_PORT=587
+MAIL_SERVER=smtp.gmail.com
+MAIL_STARTTLS=true
+MAIL_SSL_TLS=false
+```
+
+---
+
 ## 🚀 Production Deployment
 
 ### Required Configuration
 
-Create a `.env` for production with these critical settings:
-
 ```bash
-# Required: Generate with `openssl rand -hex 32`
-SECRET_KEY=your-secure-random-key
+# Security
+SECRET_KEY=your-secure-random-key  # openssl rand -hex 32
+COOKIE_SECURE=true
 
-# WebAuthn: Your production domain (NO protocol, NO port)
+# WebAuthn (cannot change after users register!)
 WEBAUTHN_RP_ID=yourdomain.com
 WEBAUTHN_RP_NAME=Your App Name
 WEBAUTHN_ORIGIN=https://yourdomain.com
 
-# Database
+# Database (use Docker service name)
 POSTGRES_SERVER=db
-POSTGRES_USER=youruser
-POSTGRES_PASSWORD=strong-password
-POSTGRES_DB=yourdb
 
-# Redis (use service name in Docker)
-REDIS_URL=redis://redis:6379
-
-# Security (MUST be true for HTTPS)
-COOKIE_SECURE=true
-
-# CORS (your frontend URL)
-BACKEND_CORS_ORIGINS=https://yourdomain.com,https://www.yourdomain.com
+# Email
+MAIL_USERNAME=noreply@yourdomain.com
+MAIL_FROM=noreply@yourdomain.com
 ```
 
 ### ⚠️ Important Notes
 
-1. **WEBAUTHN_RP_ID cannot change** after users create passkeys. Choose carefully!
-2. **HTTPS is required** for passkeys to work in production (except localhost)
-3. **COOKIE_SECURE=true** ensures cookies are only sent over HTTPS
-
-### Deploy Steps
-
-```bash
-# 1. Copy your production .env to the server
-
-# 2. Start services
-docker compose up -d
-
-# 3. Run migrations
-docker compose exec app-api alembic upgrade head
-
-# 4. Check health
-curl https://yourdomain.com/health
-```
+1. **WEBAUTHN_RP_ID cannot change** after users create passkeys
+2. **HTTPS is required** for passkeys in production
+3. **COOKIE_SECURE=true** is mandatory for HTTPS
 
 ---
 
@@ -242,10 +288,13 @@ fastapi-auth-core/
 │   ├── models/
 │   │   ├── user.py              # User model
 │   │   └── passkey.py           # Passkey model
+│   │   ├── otp.py               # OTP generation/verification
+│   │   └── email.py             # Email service
 │   └── main.py                  # FastAPI app
 ├── alembic/                     # Database migrations
 ├── tests/                       # Test suite
-├── docker-compose.yml
+├── docker-compose.yml           # Production
+├── docker-compose.dev.yml       # Development
 ├── Dockerfile
 └── Makefile
 ```
@@ -263,10 +312,13 @@ fastapi-auth-core/
 | `WEBAUTHN_ORIGIN` | Frontend URL | `http://localhost:3000` |
 | `REDIS_URL` | Redis connection | `redis://localhost:6379` |
 | `COOKIE_SECURE` | HTTPS-only cookies | `false` |
+| `MAIL_USERNAME` | SMTP username | - |
+| `MAIL_PASSWORD` | SMTP password/app password | - |
+| `MAIL_FROM` | Sender email address | `noreply@example.com` |
+| `MAIL_SERVER` | SMTP server | `smtp.gmail.com` |
+| `OTP_EXPIRE_MINUTES` | OTP validity | `10` |
+| `OTP_MAX_ATTEMPTS` | Max OTP verification attempts | `3` |
 | `RATE_LIMIT_REQUESTS` | Max requests per window | `100` |
-| `RATE_LIMIT_WINDOW` | Window size (seconds) | `60` |
-| `ACCESS_TOKEN_EXPIRE_MINUTES` | Access token TTL | `15` |
-| `REFRESH_TOKEN_EXPIRE_DAYS` | Refresh token TTL | `7` |
 
 ---
 
@@ -294,22 +346,35 @@ Example registration flow:
 ```javascript
 import { startRegistration } from '@simplewebauthn/browser';
 
-// 1. Get options from backend
-const { options } = await fetch('/api/v1/passkeys/register/begin', {
+const email = 'user@example.com';
+
+// 1. Start registration
+const beginRes = await fetch('/api/v1/passkeys/register/begin', {
   method: 'POST',
   headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ email: 'user@example.com' })
+  body: JSON.stringify({ email })
 }).then(r => r.json());
 
-// 2. Create passkey (browser handles biometrics)
-const credential = await startRegistration({ optionsJSON: options });
+// 2. Check if OTP is required (existing user)
+if (beginRes.requires_otp) {
+  // User enters OTP from email, then verify
+  const verifyRes = await fetch('/api/v1/passkeys/register/verify-otp', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, otp: '123456' })
+  }).then(r => r.json());
+  beginRes.options = verifyRes.options;
+}
 
-// 3. Complete registration
+// 3. Create passkey (browser handles biometrics)
+const credential = await startRegistration({ optionsJSON: beginRes.options });
+
+// 4. Complete registration
 await fetch('/api/v1/passkeys/register/complete', {
   method: 'POST',
   headers: { 'Content-Type': 'application/json' },
-  credentials: 'include',  // Required for cookies
-  body: JSON.stringify({ email: 'user@example.com', credential })
+  credentials: 'include',
+  body: JSON.stringify({ email, credential })
 });
 ```
 

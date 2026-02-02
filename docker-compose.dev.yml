@@ -1,22 +1,11 @@
 services:
-  # FastAPI Application
-  app-api:
-    build: .
-    container_name: app_api
-    restart: always
-    env_file:
-      - .env
-    ports:
-      - "${APP_PORT:-8000}:8000"
-    depends_on:
-      - db
-      - redis
-
-  # Database Service - internal only (no port exposed)
+  # Database Service - exposed for local development
   db:
     image: postgres:17-alpine
     container_name: app_db
     restart: always
+    ports:
+      - "5432:5432"
     environment:
       - POSTGRES_USER=${POSTGRES_USER}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
@@ -25,11 +14,13 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
-  # Redis Service - internal only (no port exposed)
+  # Redis Service - exposed for local development
   redis:
     image: redis:7-alpine
     container_name: app_redis
     restart: always
+    ports:
+      - "6379:6379"
     volumes:
       - redis_data:/data
 

@@ -51,13 +51,13 @@ run:
 	@export $$(grep -v '^#' .env | xargs) 2>/dev/null; \
 	POSTGRES_SERVER=localhost uv run uvicorn app.main:app --reload --port $${APP_PORT:-8000}
 
-# Start database and Redis (Docker)
+# Start database and Redis for local development (Docker)
 db:
-	docker compose up -d db redis
+	docker compose -f docker-compose.dev.yml up -d db redis
 
-# Start Redis only (Docker)
+# Start Redis only for local development (Docker)
 redis:
-	docker compose up -d redis
+	docker compose -f docker-compose.dev.yml up -d redis
 
 # Clean up cache files
 clean:

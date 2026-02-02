@@ -17,6 +17,7 @@ dependencies = [
     "uvicorn>=0.40.0",
     "psycopg2-binary>=2.9.11",
     "webauthn>=2.7.0",
+    "fastapi-mail>=1.4.0",
 ]
 
 [dependency-groups]

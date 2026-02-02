@@ -32,10 +32,39 @@ class PasskeyRegisterBeginResponse(BaseModel):
 
     The 'options' field contains JSON that should be passed to
     navigator.credentials.create() in the browser.
+
+    For existing users, 'requires_otp' will be True and 'options' will be None
+    until OTP verification is completed.
     """
 
-    options: dict = Field(
-        description="PublicKeyCredentialCreationOptions for the browser"
+    options: dict | None = Field(
+        default=None,
+        description="PublicKeyCredentialCreationOptions for the browser",
+    )
+    requires_otp: bool = Field(
+        default=False,
+        description="True if OTP verification is required (existing user)",
+    )
+    message: str | None = Field(
+        default=None,
+        description="User-facing message about next steps",
+    )
+
+
+class OTPVerifyRequest(BaseModel):
+    """Request to verify OTP for existing user passkey registration."""
+
+    email: EmailStr
+    otp: str = Field(
+        min_length=6,
+        max_length=6,
+        pattern=r"^\d{6}$",
+        description="6-digit OTP code received via email",
+    )
+    display_name: str | None = Field(
+        default=None,
+        max_length=100,
+        description="Optional display name shown in passkey prompts",
     )
 
 

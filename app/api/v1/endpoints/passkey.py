@@ -22,11 +22,21 @@ from app.core.cache import store_challenge as redis_store_challenge
 from app.core.config import settings
 from app.core.exceptions import (
     ChallengeNotFoundException,
+    EmailSendException,
     InactiveUserException,
+    InvalidOTPException,
+    OTPRateLimitException,
     PasskeyAuthenticationFailedException,
     PasskeyNotFoundException,
     PasskeyRegistrationFailedException,
     UserNotFoundException,
+)
+from app.core.email import send_otp_email
+from app.core.otp import (
+    check_rate_limit,
+    generate_otp,
+    store_otp,
+    verify_otp,
 )
 from app.core.logging import get_logger
 from app.core.security import create_access_token, create_refresh_token
@@ -40,6 +50,7 @@ from app.db.session import get_db
 from app.models.passkey import Passkey
 from app.models.user import User
 from app.schemas.passkey import (
+    OTPVerifyRequest,
     PasskeyListResponse,
     PasskeyLoginBeginRequest,
     PasskeyLoginBeginResponse,
@@ -106,12 +117,15 @@ async def register_begin(
 
     Step 1 of 2 in the registration flow.
 
+    For new users: Returns WebAuthn options immediately.
+    For existing users: Sends OTP email for verification first.
+
     Args:
         request: Contains email and optional display name.
         db: Database session.
 
     Returns:
-        WebAuthn options for navigator.credentials.create()
+        WebAuthn options for new users, or OTP requirement for existing users.
     """
     # Check if user already exists
     result = await db.execute(
@@ -122,19 +136,85 @@ async def register_begin(
     existing_user = result.scalars().first()
 
     if existing_user:
-        # User exists - this will add another passkey
-        user_id = str(existing_user.id).encode()
-        existing_credentials = existing_user.passkeys
-        display_name = existing_user.display_name or request.display_name
-        logger.info(f"Adding new passkey for existing user: {request.email}")
-    else:
-        # New user - use email hash as temporary ID
-        user_id = request.email.encode()
-        existing_credentials = []
-        display_name = request.display_name
-        logger.info(f"Starting registration for new user: {request.email}")
+        # SECURITY: Existing user - require OTP verification before adding passkey
+        # Check rate limit first
+        if not await check_rate_limit(request.email):
+            raise OTPRateLimitException()
+
+        # Generate and send OTP
+        otp = generate_otp()
+        await store_otp(request.email, otp)
+
+        try:
+            await send_otp_email(request.email, otp)
+        except Exception as e:
+            logger.error(f"Failed to send OTP email: {e}")
+            raise EmailSendException("Failed to send verification email")
+
+        logger.info(f"OTP sent for existing user passkey registration: {request.email}")
+
+        return PasskeyRegisterBeginResponse(
+            requires_otp=True,
+            message="A verification code has been sent to your email. Please verify to continue.",
+        )
+
+    # New user - proceed with normal registration flow
+    user_id = request.email.encode()
+    display_name = request.display_name
+    logger.info(f"Starting registration for new user: {request.email}")
 
     # Generate WebAuthn options
+    options, challenge = get_registration_options(
+        user_id=user_id,
+        user_email=request.email,
+        user_display_name=display_name,
+        existing_credentials=[],
+    )
+
+    # Store challenge for verification
+    await _store_challenge(request.email, challenge, request.display_name)
+
+    return PasskeyRegisterBeginResponse(options=options)
+
+
+@router.post("/register/verify-otp", response_model=PasskeyRegisterBeginResponse)
+async def register_verify_otp(
+    request: OTPVerifyRequest,
+    db: AsyncSession = Depends(get_db),
+) -> PasskeyRegisterBeginResponse:
+    """
+    Verify OTP and return passkey options for existing user.
+
+    This endpoint is called after /register/begin returns requires_otp=True.
+
+    Args:
+        request: Contains email and OTP code.
+        db: Database session.
+
+    Returns:
+        WebAuthn options for navigator.credentials.create()
+    """
+    # Verify OTP
+    if not await verify_otp(request.email, request.otp):
+        raise InvalidOTPException()
+
+    # Get existing user (must exist since OTP was required)
+    result = await db.execute(
+        select(User)
+        .where(User.email == request.email)
+        .options(selectinload(User.passkeys))
+    )
+    existing_user = result.scalars().first()
+
+    if not existing_user:
+        # This shouldn't happen, but handle it gracefully
+        raise UserNotFoundException()
+
+    # Generate WebAuthn options for existing user
+    user_id = str(existing_user.id).encode()
+    existing_credentials = existing_user.passkeys
+    display_name = existing_user.display_name or request.display_name
+
     options, challenge = get_registration_options(
         user_id=user_id,
         user_email=request.email,
@@ -144,6 +224,8 @@ async def register_begin(
 
     # Store challenge for verification
     await _store_challenge(request.email, challenge, request.display_name)
+
+    logger.info(f"OTP verified, passkey options generated for: {request.email}")
 
     return PasskeyRegisterBeginResponse(options=options)
 

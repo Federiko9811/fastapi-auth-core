@@ -63,6 +63,21 @@ class Settings(BaseSettings):
     RATE_LIMIT_REQUESTS: int = 100  # Max requests per window
     RATE_LIMIT_WINDOW: int = 60  # Window size in seconds
 
+    # Email Configuration (SMTP)
+    MAIL_USERNAME: str = ""
+    MAIL_PASSWORD: str = ""
+    MAIL_FROM: str = "noreply@example.com"
+    MAIL_FROM_NAME: str = "FastAPI Auth"
+    MAIL_PORT: int = 587
+    MAIL_SERVER: str = "smtp.gmail.com"
+    MAIL_STARTTLS: bool = True
+    MAIL_SSL_TLS: bool = False
+
+    # OTP Configuration
+    OTP_EXPIRE_MINUTES: int = 10
+    OTP_MAX_ATTEMPTS: int = 3
+    OTP_LENGTH: int = 6
+
     model_config = SettingsConfigDict(
         env_file=".env", case_sensitive=True, extra="ignore"
     )

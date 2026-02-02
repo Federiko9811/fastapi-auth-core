@@ -106,3 +106,33 @@ class ChallengeNotFoundException(HTTPException):
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Challenge not found or expired. Please start the process again.",
         )
+
+
+class InvalidOTPException(HTTPException):
+    """Exception raised when OTP verification fails."""
+
+    def __init__(self, detail: str = "Invalid or expired OTP") -> None:
+        super().__init__(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=detail,
+        )
+
+
+class OTPRateLimitException(HTTPException):
+    """Exception raised when too many OTP attempts."""
+
+    def __init__(self) -> None:
+        super().__init__(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Too many attempts. Please try again later.",
+        )
+
+
+class EmailSendException(HTTPException):
+    """Exception raised when email sending fails."""
+
+    def __init__(self, detail: str = "Failed to send email") -> None:
+        super().__init__(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=detail,
+        )
